@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Local editor and OS files
+.DS_Store
+._*
+Thumbs.db
+.idea/
+.vscode/
+.history/
+.agents/
+.codex/
+/scripts/
+
+# Data and generated artifacts
+data/raw/
+data/processed/
+data/results/
+outputs/
+logs/
+train/results/
+
+# Models and checkpoints
+model/Qwen3-1-7B/
+model/Qwen3-1-7B-expand/
+model/merged_*/
+checkpoint-*/
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Packaged archives and backups
+env_backup_*.tar.gz
+*.tar.gz
+*.zip
+
+# Local secrets and services
+.env
+wandb/

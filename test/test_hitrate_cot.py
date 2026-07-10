@@ -89,6 +89,9 @@ def parse_args():
     parser.add_argument("--history_truncation_side", type=str, default="tail",
                     choices=["tail", "head"],
                     help="Keep tail (most recent) or head (earliest) history items.")
+    parser.add_argument("--evaluation_scope", type=str, default="unspecified",
+                    choices=["subset", "full", "unspecified"],
+                    help="Evaluation scope label for protocol logging only.")
     
     return parser.parse_args()
 

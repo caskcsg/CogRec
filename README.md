@@ -58,41 +58,73 @@ The base model weights are not included. Download Qwen3-1.7B into `model/Qwen3-1
 python model/download_basemodel.py
 ```
 
-## Beauty Reproduction Example
+## Paper Reproduction Protocol
 
-The following commands run the complete supervised pipeline for one dataset. The default example assumes 2 GPUs:
+The training and evaluation protocol uses seed 42. Stage 2 SID recommendation is full-parameter fine-tuning; LoRA remains available only as an explicitly requested alternative. Training, direct/No-CoT evaluation, and the default subset-CoT evaluation use complete histories without truncation.
+
+The training script defaults to 2 GPUs. The canonical paper workflow below uses 4 GPUs and DeepSpeed ZeRO-2.
+
+### Data Preparation
+
+Prepare one category with:
 
 ```bash
 python run_generate_data.py --category Beauty --phase download
 python run_generate_data.py --category Beauty --phase sid
 python run_generate_data.py --category Beauty --phase hnsw
-
-bash run_train.sh --stage expand --category Beauty --gpus 2
-bash run_train.sh --stage align --category Beauty --gpus 2
-bash run_train.sh --stage merge --category Beauty --gpus 2
-bash run_train.sh --stage rec --category Beauty --gpus 2
-bash run_train.sh --stage eval_rec --category Beauty --gpus 2
-bash run_train.sh --stage ra --category Beauty --gpus 2
-bash run_train.sh --stage eval_ra --category Beauty --gpus 2
-bash run_train.sh --stage sid_routing --category Beauty --gpus 2
-bash run_train.sh --stage eval_sid_routing --category Beauty --gpus 2
 ```
 
-You can also run the supervised training/evaluation stages through:
+Replace `Beauty` with `Sports` or `Toys`. To prepare all categories, run `python run_generate_data.py --category all`.
+
+### Beauty Workflow
+
+`all` runs canonical training and the default lightweight evaluation flow: full-test No-CoT plus the predefined subset-CoT evaluation. The subset-CoT path does not truncate history. Full-test CoT is intentionally separate because 5 reasoning samples x 10 beams can require substantially more memory.
 
 ```bash
-bash run_train.sh --stage all --category Beauty --gpus 2
+bash run_train.sh --stage all --category Beauty --gpus 4
+
+bash run_train.sh --stage eval_sid_routing_ckpt --category Beauty --gpus 4
+
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export COT_MAX_HISTORY_ITEMS=21
+export COT_HISTORY_TRUNCATION_SIDE=tail
+bash run_train.sh --stage eval_ra_full_cot --category Beauty --gpus 4
+
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export COT_MAX_HISTORY_ITEMS=21
+export COT_HISTORY_TRUNCATION_SIDE=tail
+bash run_train.sh --stage eval_sid_routing_full_cot --category Beauty --gpus 4
 ```
 
-The script uses DeepSpeed ZeRO-2 when `--gpus` is greater than 1. For a single-GPU smoke run, set `--gpus 1`.
+`eval_sid_routing_ckpt` evaluates and selects the intended Stage 3b routing checkpoint. The checkpoints reported in the paper are Beauty epoch 2, Sports epoch 2, and Toys epoch 3.
 
-## Other Categories
+### Full-Test CoT Memory Controls
 
-Replace `Beauty` with `Sports` or `Toys` in the commands above. To generate offline data for all categories:
+These values are approximate P95 history lengths. They are memory-control settings only for explicit full-test CoT commands; they are not training or evaluation protocol truncation defaults.
+
+| Dataset | Full-CoT max history | Side |
+|---|---:|---|
+| Beauty | 21 | tail |
+| Sports | 20 | tail |
+| Toys | 18 | tail |
+
+Use the following template for Sports or Toys:
 
 ```bash
-python run_generate_data.py --category all
+CATEGORY=Sports
+MAX_HISTORY_ITEMS=20
+# For Toys, use: CATEGORY=Toys and MAX_HISTORY_ITEMS=18
+
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export COT_MAX_HISTORY_ITEMS="${MAX_HISTORY_ITEMS}"
+export COT_HISTORY_TRUNCATION_SIDE=tail
+bash run_train.sh --stage eval_ra_full_cot --category "${CATEGORY}" --gpus 4
+bash run_train.sh --stage eval_sid_routing_full_cot --category "${CATEGORY}" --gpus 4
 ```
+
+If `COT_MAX_HISTORY_ITEMS` is unset, full-test CoT keeps complete histories and emits an OOM warning; the code does not silently select a dataset-specific value.
+
+The released evaluation code emits Hit@K/NDCG@K metrics and supports stratified difficulty and CoT-step statistics. Final paper-rendering and plotting utilities are intentionally excluded from this anonymous release.
 
 ## Outputs
 

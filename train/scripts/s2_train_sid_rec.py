@@ -25,7 +25,7 @@ class ModelArguments:
         default=str(MODEL_DIR  / "Qwen3-1-7B-expand"),
         metadata={"help": "Path to pretrained model"}
     )
-    use_lora: bool = field(default=True, metadata={"help": "Whether to use LoRA"})
+    use_lora: bool = field(default=False, metadata={"help": "Whether to use LoRA"})
     lora_r: int = field(default=64, metadata={"help": "LoRA rank"})
     lora_alpha: int = field(default=64, metadata={"help": "LoRA alpha"})
     lora_dropout: float = field(default=0.05, metadata={"help": "LoRA dropout"})
@@ -149,6 +149,10 @@ if __name__ == "__main__":
     parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     training_args.label_names = ["labels"]
+
+    if training_args.local_rank in (-1, 0):
+        tuning_mode = "LoRA" if model_args.use_lora else "full-parameter"
+        print(f"Stage 2 tuning mode: {tuning_mode}")
 
     # ====================== 自适应多类别路径 ======================
     if data_args.train_data_path is None:

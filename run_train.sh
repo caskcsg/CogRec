@@ -440,6 +440,8 @@ do_align() {
         --remove_unused_columns False
         --category "${CATEGORY}"
         --report_to none
+        --seed 42
+        --data_seed 42
     )
 
     if [[ ${NUM_GPUS} -eq 1 ]]; then
@@ -534,6 +536,8 @@ do_rec() {
         --max_grad_norm 1.0
         --dataloader_num_workers 4
         --remove_unused_columns False
+        --seed 42
+        --data_seed 42
     )
 
     if [[ ${NUM_GPUS} -eq 1 ]]; then
@@ -638,6 +642,8 @@ do_ra() {
             --max_grad_norm 1.0
             --dataloader_num_workers 4
             --remove_unused_columns False
+            --seed 42
+            --data_seed 42
         )
 
         if [[ ${NUM_GPUS} -eq 1 ]]; then
@@ -767,6 +773,8 @@ do_sid_routing() {
         --max_grad_norm 1.0
         --dataloader_num_workers 4
         --remove_unused_columns False
+        --seed 42
+        --data_seed 42
     )
 
     if [[ ${NUM_GPUS} -eq 1 ]]; then
@@ -1136,6 +1144,37 @@ _eval_cot_on_file() {
     local label=$4
     local trie_source_file=$5
     local think_max=${6:-128}
+    local max_history_items=${7:-}
+    local history_truncation_side=${8:-}
+    local eval_scope=${9:-}
+
+    if ! [[ "${max_history_items}" =~ ^[0-9]+$ ]]; then
+        log ERROR "CoT max_history_items 必须是非负整数, got: ${max_history_items:-<empty>}"
+        return 1
+    fi
+    case "${history_truncation_side}" in
+        head|tail) ;;
+        *)
+            log ERROR "CoT history_truncation_side 必须是 head 或 tail, got: ${history_truncation_side:-<empty>}"
+            return 1
+            ;;
+    esac
+    case "${eval_scope}" in
+        subset|full) ;;
+        *)
+            log ERROR "CoT scope 必须是 subset 或 full, got: ${eval_scope:-<empty>}"
+            return 1
+            ;;
+    esac
+    if [[ "${eval_scope}" == "subset" && "${max_history_items}" -ne 0 ]]; then
+        log ERROR "Subset-CoT 不允许历史截断; max_history_items 必须为 0"
+        return 1
+    fi
+    if [[ "${eval_scope}" == "full" && "${max_history_items}" -eq 0 ]]; then
+        log WARN "Full-CoT max_history_items=0: 完整历史可能导致 OOM"
+    fi
+
+    log INFO "CoT 配置 [${label}]: scope=${eval_scope}, max_history_items=${max_history_items}, history_truncation_side=${history_truncation_side}"
 
     check_files "${model_path}/config.json" "${test_file}" "${trie_file}" "${trie_source_file}"
 
@@ -1151,14 +1190,11 @@ _eval_cot_on_file() {
     local eval_log_dir="${LOG_DIR}/eval_${label}_${CAT_LOWER}_$(date '+%Y%m%d_%H%M%S')"
     mkdir -p "${eval_log_dir}"
 
-     local sys_prompt="${SYS_PROMPT_RA}"
+    local sys_prompt="${SYS_PROMPT_RA}"
     if [[ "${label}" == *"sid_routing"* || "${label}" == *"routing"* ]]; then
         sys_prompt="${SYS_PROMPT_ROUTING}"
     fi
  
-    local COT_MAX_HISTORY_ITEMS="${COT_MAX_HISTORY_ITEMS:-0}"
-    local COT_HISTORY_TRUNCATION_SIDE="${COT_HISTORY_TRUNCATION_SIDE:-tail}"
-    
     local COMMON_ARGS=(
         --merged_model_path "${model_path}"
         --test_parquet_file "${test_file}"
@@ -1176,8 +1212,9 @@ _eval_cot_on_file() {
         --print_generations
         --system_prompt "${sys_prompt}"
         --trie_source_parquet_file "${trie_source_file}"
-        --max_history_items "${COT_MAX_HISTORY_ITEMS}"
-        --history_truncation_side "${COT_HISTORY_TRUNCATION_SIDE}"
+        --max_history_items "${max_history_items}"
+        --history_truncation_side "${history_truncation_side}"
+        --evaluation_scope "${eval_scope}"
     )
 
     if [[ ${EVAL_GPUS} -ge 2 ]]; then
@@ -1289,7 +1326,7 @@ do_eval_ra() {
 
     # 2. CoT 评估 (subset, 默认 — 策略/参数对齐 OneRec，仅数据量缩小)
     [[ -f "${RA_TEST_COT}" ]] || { log ERROR "RA CoT 子集不存在: ${RA_TEST_COT}"; exit 1; }
-    _eval_cot_on_file "${model}" "${RA_TEST_COT}" "${trie_file}" "ra_subset_cot" "${RA_TEST}"
+    _eval_cot_on_file "${model}" "${RA_TEST_COT}" "${trie_file}" "ra_subset_cot" "${RA_TEST}" 128 0 tail subset
 }
 
 do_eval_sid_routing() {
@@ -1318,7 +1355,7 @@ do_eval_sid_routing() {
 
     # 2. CoT 评估 (subset, 默认)
     [[ -f "${ROUTING_TEST_COT}" ]] || { log ERROR "Routing CoT 子集不存在: ${ROUTING_TEST_COT}"; exit 1; }
-    _eval_cot_on_file "${model}" "${ROUTING_TEST_COT}" "${trie_file}" "sid_routing_subset_cot" "${ROUTING_TEST}" "${think_max}"
+    _eval_cot_on_file "${model}" "${ROUTING_TEST_COT}" "${trie_file}" "sid_routing_subset_cot" "${ROUTING_TEST}" "${think_max}" 0 tail subset
 }
 
 do_eval_ra_full_cot() {
@@ -1337,7 +1374,8 @@ do_eval_ra_full_cot() {
     local trie_source_file=$(_trie_source_file ra)
     local trie_file=$(_ensure_trie "${model}" ra "${trie_source_file}")
 
-    _eval_cot_on_file "${model}" "${RA_TEST}" "${trie_file}" "ra_full_cot" "${RA_TEST}"
+    _eval_cot_on_file "${model}" "${RA_TEST}" "${trie_file}" "ra_full_cot" "${RA_TEST}" 128 \
+        "${COT_MAX_HISTORY_ITEMS:-0}" "${COT_HISTORY_TRUNCATION_SIDE:-tail}" full
 }
 
 do_eval_sid_routing_full_cot() {
@@ -1357,7 +1395,8 @@ do_eval_sid_routing_full_cot() {
     local trie_file=$(_ensure_trie "${model}" routing "${trie_source_file}")
 
     local think_max=$(_resolve_routing_think_max)
-    _eval_cot_on_file "${model}" "${ROUTING_TEST}" "${trie_file}" "sid_routing_full_cot" "${ROUTING_TEST}" "${think_max}"
+    _eval_cot_on_file "${model}" "${ROUTING_TEST}" "${trie_file}" "sid_routing_full_cot" "${ROUTING_TEST}" "${think_max}" \
+        "${COT_MAX_HISTORY_ITEMS:-0}" "${COT_HISTORY_TRUNCATION_SIDE:-tail}" full
 }
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1531,14 +1570,15 @@ else:
     if ${do_subset} && [[ -f "${ROUTING_TEST_COT}" ]]; then
         log INFO "── CoT Subset 评估 [${ckpt_tag}] ──"
         _eval_cot_on_file "${model_path}" "${ROUTING_TEST_COT}" "${trie_file}" \
-            "sid_routing_subset_cot_${ckpt_tag}" "${ROUTING_TEST}" "${think_max}"
+            "sid_routing_subset_cot_${ckpt_tag}" "${ROUTING_TEST}" "${think_max}" 0 tail subset
     fi
 
     # ── Full CoT ────────────────────────────────────────────────────
     if ${do_full}; then
         log INFO "── Full CoT 评估 [${ckpt_tag}] ──"
         _eval_cot_on_file "${model_path}" "${ROUTING_TEST}" "${trie_file}" \
-            "sid_routing_full_cot_${ckpt_tag}" "${ROUTING_TEST}" "${think_max}"
+            "sid_routing_full_cot_${ckpt_tag}" "${ROUTING_TEST}" "${think_max}" \
+            "${COT_MAX_HISTORY_ITEMS:-0}" "${COT_HISTORY_TRUNCATION_SIDE:-tail}" full
     fi
 
     log INFO "手动 Checkpoint 评估完成: ${ckpt_tag}"

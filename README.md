@@ -103,10 +103,10 @@ bash run_train.sh --stage eval_sid_routing_full_cot --category Beauty --gpus 4
 These values are approximate P95 history lengths. They are memory-control settings only for explicit full-test CoT commands; they are not training or evaluation protocol truncation defaults.
 
 | Dataset | Full-CoT max history | Side |
-|---|---:|---|
-| Beauty | 21 | tail |
-| Sports | 20 | tail |
-| Toys | 18 | tail |
+| ------- | -------------------: | ---- |
+| Beauty  |                   21 | tail |
+| Sports  |                   20 | tail |
+| Toys    |                   18 | tail |
 
 Use the following template for Sports or Toys:
 

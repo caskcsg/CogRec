@@ -1,13 +1,13 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════
-# run_train.sh — OneRec 统一训练入口
+# run_train.sh — CogRec 统一训练入口
 # ═══════════════════════════════════════════════════════════════════════
 #
 # 单卡 (--gpus 1): 原生 PyTorch
 # 多卡 (--gpus 2+): DeepSpeed ZeRO-2
 #
 # 有效 batch 严格对齐 OneRec 原版 (8GPU):
-#   S1 Align:       8 × GA × N_GPU = 64
+#   S1 Align:       4 × GA × N_GPU = 64
 #   S2 Rec/S3a/S3b: 2 × GA × N_GPU = 16
 #
 # 正式版约定:
@@ -1590,14 +1590,14 @@ else:
 # ═══════════════════════════════════════════════════════════════════════
 
 log INFO "╔══════════════════════════════════════════════════════════╗"
-log INFO "║  OneRec Training Pipeline  ║"
+log INFO "║  CogRec Training Pipeline  ║"
 log INFO "╠══════════════════════════════════════════════════════════╣"
-log INFO "║  Stage:    %-45s ║" "${STAGE}"
-log INFO "║  Category: %-45s ║" "${CATEGORY}"
-log INFO "║  GPUs:     %-45s ║" "${NUM_GPUS} ($([ ${NUM_GPUS} -eq 1 ] && echo '原生PyTorch' || echo 'DeepSpeed ZeRO-2'))"
-log INFO "║  Data:     %-45s ║" "${DATA_DIR}"
-log INFO "║  Results:  %-45s ║" "${RESULTS_DIR}"
-log INFO "║  Log:      %-45s ║" "${LOG_FILE}"
+log INFO "$(printf "║  Stage:    %-45s ║" "${STAGE}")"
+log INFO "$(printf "║  Category: %-45s ║" "${CATEGORY}")"
+log INFO "$(printf "║  GPUs:     %-45s ║" "${NUM_GPUS} ($([ ${NUM_GPUS} -eq 1 ] && echo '原生PyTorch' || echo 'DeepSpeed ZeRO-2'))")"
+log INFO "$(printf "║  Data:     %-45s ║" "${DATA_DIR}")"
+log INFO "$(printf "║  Results:  %-45s ║" "${RESULTS_DIR}")"
+log INFO "$(printf "║  Log:      %-45s ║" "${LOG_FILE}")"
 log INFO "╚══════════════════════════════════════════════════════════╝"
 
 if ${DRY_RUN}; then
@@ -1609,7 +1609,7 @@ if ${DRY_RUN}; then
     done
     echo ""
     echo "GA 计算 (${NUM_GPUS} GPU):"
-    echo "  S1 Align:   8 × $(compute_ga 64 8) × ${NUM_GPUS} = $((8 * $(compute_ga 64 8) * NUM_GPUS))"
+    echo "  S1 Align:   4 × $(compute_ga 64 4) × ${NUM_GPUS} = $((4 * $(compute_ga 64 4) * NUM_GPUS))"
     echo "  S2 Rec:     2 × $(compute_ga 16 2) × ${NUM_GPUS} = $((2 * $(compute_ga 16 2) * NUM_GPUS))"
     echo "  S3 RA/Rout: 2 × $(compute_ga 16 2) × ${NUM_GPUS} = $((2 * $(compute_ga 16 2) * NUM_GPUS))"
     echo ""

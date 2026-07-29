@@ -504,7 +504,8 @@ def main():
     log.info("")
     log.info("  日志文件: %s", log_file)
     log.info("  下一步:")
-    log.info("    bash run_train.sh --stage all --category Sports --gpus 2")
+    for cat in categories:
+        log.info("    bash run_train.sh --stage all --category %s --gpus 2", cat)
     log.info("🎉 全部完成!")
 
 

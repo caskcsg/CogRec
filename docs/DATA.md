@@ -6,7 +6,7 @@ This repository uses the Amazon Reviews 2014 5-core datasets:
 - Sports and Outdoors
 - Toys and Games
 
-The raw files are downloaded from the public SNAP Amazon product graph dataset. This anonymous release does not redistribute raw data, processed data, train/eval splits, generated embeddings, checkpoints, or model outputs.
+The raw files are downloaded from the public SNAP Amazon product graph dataset. This repository does not redistribute raw data, processed data, train/eval splits, generated embeddings, checkpoints, or model outputs.
 
 Example:
 
@@ -33,4 +33,3 @@ python run_generate_data.py --category Beauty --phase hnsw
 ```
 
 Use `--category Sports`, `--category Toys`, or `--category all` for other settings.
-

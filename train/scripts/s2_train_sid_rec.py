@@ -177,7 +177,7 @@ if __name__ == "__main__":
         print(f"Debug: metric_for_best_model = {training_args.metric_for_best_model}")
         print(f"Debug: greater_is_better = {training_args.greater_is_better}")
         print(f"Debug: load_best_model_at_end = {training_args.load_best_model_at_end}")
-        print(f"Debug: early stopping patience = 2")
+        print(f"Debug: early stopping patience = 5")
         print(f"Using model_dir: {model_dir}")
         print(f"Training data path: {train_data_path}")
         print(f"Validation data path: {val_data_path}")
